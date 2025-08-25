@@ -370,6 +370,48 @@ const EmployeeDashboard = ({ currentPage, setCurrentPage, user }) => {
           loadRequests();
         }} />
       )}
+
+      {currentPage === 'edit-request' && editingRequest && (
+        <EditRequestForm 
+          request={editingRequest} 
+          onSuccess={() => {
+            setCurrentPage('dashboard');
+            setEditingRequest(null);
+            loadRequests();
+          }}
+          onCancel={() => {
+            setCurrentPage('dashboard');
+            setEditingRequest(null);
+          }}
+        />
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl p-6 max-w-md w-full">
+            <h3 className="text-lg font-semibold mb-4 text-slate-800">Conferma Cancellazione</h3>
+            <p className="text-slate-600 mb-6">
+              Sei sicuro di voler cancellare questa richiesta di {showDeleteConfirm.type}? 
+              Questa azione non può essere annullata.
+            </p>
+            <div className="flex space-x-3">
+              <button
+                onClick={() => handleDeleteRequest(showDeleteConfirm.id)}
+                className="flex-1 bg-red-600 text-white py-2 px-4 rounded-lg hover:bg-red-700 transition-colors"
+              >
+                Cancella
+              </button>
+              <button
+                onClick={() => setShowDeleteConfirm(null)}
+                className="flex-1 bg-slate-200 text-slate-700 py-2 px-4 rounded-lg hover:bg-slate-300 transition-colors"
+              >
+                Annulla
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
