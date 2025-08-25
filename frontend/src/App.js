@@ -61,7 +61,7 @@ function App() {
                 className="flex items-center space-x-2 text-slate-600 hover:text-red-600 transition-colors"
               >
                 <LogOut className="h-4 w-4" />
-                <span className="hidden sm:block">Esci</span>
+                <span>Esci</span>
               </button>
             </div>
           </div>
