@@ -506,6 +506,73 @@ async def update_admin_settings(
     
     return {"message": "Impostazioni aggiornate con successo"}
 
+# Employee update request (only if pending)
+@api_router.put("/requests/{request_id}")
+async def update_request(
+    request_id: str,
+    request_data: LeaveRequestCreate,
+    current_user: User = Depends(get_current_user)
+):
+    if current_user.role != "employee":
+        raise HTTPException(status_code=403, detail="Solo i dipendenti possono modificare le richieste")
+    
+    # Find existing request
+    existing_request = await db.requests.find_one({"id": request_id, "user_id": current_user.id})
+    if not existing_request:
+        raise HTTPException(status_code=404, detail="Richiesta non trovata")
+    
+    # Check if request is still pending
+    if existing_request.get('status', 'pending') != 'pending':
+        raise HTTPException(status_code=400, detail="Non puoi modificare una richiesta già elaborata")
+    
+    # Create updated request object
+    updated_request = LeaveRequest(
+        id=request_id,
+        user_id=current_user.id,
+        **request_data.dict()
+    )
+    
+    # Convert to dict and handle date serialization
+    request_dict = updated_request.dict()
+    for field in ['start_date', 'end_date', 'permit_date', 'sick_start_date']:
+        if request_dict.get(field) is not None:
+            if hasattr(request_dict[field], 'isoformat'):
+                request_dict[field] = request_dict[field].isoformat()
+    
+    for field in ['start_time', 'end_time']:
+        if request_dict.get(field) is not None:
+            if hasattr(request_dict[field], 'isoformat'):
+                request_dict[field] = request_dict[field].isoformat()
+    
+    # Update the request
+    request_dict['updated_at'] = datetime.utcnow()
+    await db.requests.update_one({"id": request_id}, {"$set": request_dict})
+    
+    return {"message": "Richiesta modificata con successo"}
+
+# Employee delete request (only if pending)
+@api_router.delete("/requests/{request_id}")
+async def delete_request(
+    request_id: str,
+    current_user: User = Depends(get_current_user)
+):
+    if current_user.role != "employee":
+        raise HTTPException(status_code=403, detail="Solo i dipendenti possono cancellare le richieste")
+    
+    # Find existing request
+    existing_request = await db.requests.find_one({"id": request_id, "user_id": current_user.id})
+    if not existing_request:
+        raise HTTPException(status_code=404, detail="Richiesta non trovata")
+    
+    # Check if request is still pending
+    if existing_request.get('status', 'pending') != 'pending':
+        raise HTTPException(status_code=400, detail="Non puoi cancellare una richiesta già elaborata")
+    
+    # Delete the request
+    await db.requests.delete_one({"id": request_id})
+    
+    return {"message": "Richiesta cancellata con successo"}
+
 # Change password
 @api_router.put("/change-password")
 async def change_password(
