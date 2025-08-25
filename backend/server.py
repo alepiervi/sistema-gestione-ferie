@@ -451,6 +451,10 @@ async def respond_to_request(
     if not request_doc:
         raise HTTPException(status_code=404, detail="Richiesta non trovata")
     
+    # Remove MongoDB's _id field if present
+    if '_id' in request_doc:
+        del request_doc['_id']
+    
     # Update request
     status = "approved" if response.action == "approve" else "rejected"
     update_data = {
