@@ -403,9 +403,14 @@ async def get_user_requests(current_user: User = Depends(get_current_user)):
         # Employee sees only their requests
         requests = await db.requests.find({"user_id": current_user.id}).sort("created_at", -1).to_list(1000)
     
-    # Add user info for admin view
-    if current_user.role == "admin":
-        for req in requests:
+    # Clean up MongoDB ObjectId and convert to JSON-serializable format
+    for req in requests:
+        # Remove MongoDB's _id field if present
+        if '_id' in req:
+            del req['_id']
+        
+        # Add user info for admin view
+        if current_user.role == "admin":
             user = await db.users.find_one({"id": req['user_id']})
             if user:
                 req['username'] = user['username']
