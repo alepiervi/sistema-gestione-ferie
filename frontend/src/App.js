@@ -416,6 +416,204 @@ const EmployeeDashboard = ({ currentPage, setCurrentPage, user }) => {
   );
 };
 
+// Edit Request Form Component
+const EditRequestForm = ({ request, onSuccess, onCancel }) => {
+  const [requestType, setRequestType] = useState(request.type);
+  const [formData, setFormData] = useState(() => {
+    // Initialize form data based on request type
+    const data = {};
+    
+    if (request.type === 'ferie') {
+      data.start_date = request.start_date?.split('T')[0] || '';
+      data.end_date = request.end_date?.split('T')[0] || '';
+    } else if (request.type === 'permesso') {
+      data.permit_date = request.permit_date?.split('T')[0] || '';
+      data.start_time = request.start_time || '';
+      data.end_time = request.end_time || '';
+    } else if (request.type === 'malattia') {
+      data.sick_start_date = request.sick_start_date?.split('T')[0] || '';
+      data.sick_days = request.sick_days || '';
+      data.protocol_code = request.protocol_code || '';
+    }
+    
+    return data;
+  });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+
+    try {
+      const requestData = { type: requestType, ...formData };
+      await axios.put(`${API}/requests/${request.id}`, requestData);
+      onSuccess();
+    } catch (error) {
+      setError(error.response?.data?.detail || 'Errore durante la modifica della richiesta');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const renderEditForm = () => {
+    switch (requestType) {
+      case 'ferie':
+        return (
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold text-slate-800">Modifica Richiesta Ferie (max 15 giorni consecutivi)</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Data inizio</label>
+                <input
+                  type="date"
+                  value={formData.start_date || ''}
+                  onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
+                  className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Data fine</label>
+                <input
+                  type="date"
+                  value={formData.end_date || ''}
+                  onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
+                  className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  required
+                />
+              </div>
+            </div>
+          </div>
+        );
+        
+      case 'permesso':
+        return (
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold text-slate-800">Modifica Richiesta Permesso</h3>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">Data</label>
+              <input
+                type="date"
+                value={formData.permit_date || ''}
+                onChange={(e) => setFormData({ ...formData, permit_date: e.target.value })}
+                className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                required
+              />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Orario inizio</label>
+                <input
+                  type="time"
+                  value={formData.start_time || ''}
+                  onChange={(e) => setFormData({ ...formData, start_time: e.target.value })}
+                  className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Orario fine</label>
+                <input
+                  type="time"
+                  value={formData.end_time || ''}
+                  onChange={(e) => setFormData({ ...formData, end_time: e.target.value })}
+                  className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  required
+                />
+              </div>
+            </div>
+          </div>
+        );
+        
+      case 'malattia':
+        return (
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold text-slate-800">Modifica Richiesta Malattia</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Data inizio</label>
+                <input
+                  type="date"
+                  value={formData.sick_start_date || ''}
+                  onChange={(e) => setFormData({ ...formData, sick_start_date: e.target.value })}
+                  className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Numero giorni</label>
+                <input
+                  type="number"
+                  min="1"
+                  value={formData.sick_days || ''}
+                  onChange={(e) => setFormData({ ...formData, sick_days: parseInt(e.target.value) })}
+                  className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  required
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">Codice protocollo certificato</label>
+              <input
+                type="text"
+                value={formData.protocol_code || ''}
+                onChange={(e) => setFormData({ ...formData, protocol_code: e.target.value })}
+                className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                placeholder="Inserisci il codice del certificato medico"
+                required
+              />
+            </div>
+          </div>
+        );
+        
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <div className="bg-white/80 backdrop-blur-md rounded-xl p-6 shadow-sm border border-slate-200/50">
+      <h2 className="text-xl font-semibold text-slate-800 mb-6">Modifica Richiesta</h2>
+      
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <div className="bg-blue-50 border border-blue-200 p-4 rounded-lg">
+          <p className="text-blue-800 text-sm">
+            <strong>Nota:</strong> Puoi modificare solo le richieste in stato "In attesa". 
+            Una volta elaborate dall'amministratore, non potranno più essere modificate.
+          </p>
+        </div>
+
+        {renderEditForm()}
+
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+            {error}
+          </div>
+        )}
+
+        <div className="flex space-x-3 pt-6 border-t border-slate-200">
+          <button
+            type="submit"
+            disabled={loading}
+            className="flex-1 bg-gradient-to-r from-green-600 to-green-700 text-white py-3 px-6 rounded-lg font-medium hover:from-green-700 hover:to-green-800 disabled:opacity-50 transition-all"
+          >
+            {loading ? 'Modifica in corso...' : 'Salva Modifiche'}
+          </button>
+          <button
+            type="button"
+            onClick={onCancel}
+            className="px-6 py-3 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-all"
+          >
+            Annulla
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+};
+
 // New Request Form Component
 const NewRequestForm = ({ onSuccess }) => {
   const [requestType, setRequestType] = useState('');
