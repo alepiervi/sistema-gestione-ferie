@@ -358,7 +358,22 @@ async def create_request(
         **request_data.dict()
     )
     
-    await db.requests.insert_one(request_obj.dict())
+    # Convert the request to dict and handle date serialization for MongoDB
+    request_dict = request_obj.dict()
+    
+    # Convert date objects to ISO strings for MongoDB storage
+    for field in ['start_date', 'end_date', 'permit_date', 'sick_start_date']:
+        if request_dict.get(field) is not None:
+            if hasattr(request_dict[field], 'isoformat'):
+                request_dict[field] = request_dict[field].isoformat()
+    
+    # Convert time objects to strings for MongoDB storage
+    for field in ['start_time', 'end_time']:
+        if request_dict.get(field) is not None:
+            if hasattr(request_dict[field], 'isoformat'):
+                request_dict[field] = request_dict[field].isoformat()
+    
+    await db.requests.insert_one(request_dict)
     
     # Send notification to admin
     if email_settings.admin_email:
