@@ -169,6 +169,8 @@ const LoginScreen = ({ setUser }) => {
 const EmployeeDashboard = ({ currentPage, setCurrentPage, user }) => {
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [editingRequest, setEditingRequest] = useState(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(null);
 
   useEffect(() => {
     loadRequests();
@@ -180,6 +182,22 @@ const EmployeeDashboard = ({ currentPage, setCurrentPage, user }) => {
       setRequests(response.data);
     } catch (error) {
       console.error('Errore nel caricamento delle richieste:', error);
+    }
+  };
+
+  const handleEditRequest = (request) => {
+    setEditingRequest(request);
+    setCurrentPage('edit-request');
+  };
+
+  const handleDeleteRequest = async (requestId) => {
+    try {
+      await axios.delete(`${API}/requests/${requestId}`);
+      setShowDeleteConfirm(null);
+      loadRequests();
+    } catch (error) {
+      console.error('Errore nella cancellazione:', error);
+      alert('Errore nella cancellazione della richiesta');
     }
   };
 
