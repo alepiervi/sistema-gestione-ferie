@@ -279,7 +279,27 @@ const EmployeeDashboard = ({ currentPage, setCurrentPage, user }) => {
                       <h3 className="font-semibold text-slate-800 text-lg capitalize">{request.type}</h3>
                       <p className="text-slate-600">Richiesta del {formatDate(request.created_at)}</p>
                     </div>
-                    {getStatusBadge(request.status)}
+                    <div className="flex items-center space-x-2">
+                      {getStatusBadge(request.status)}
+                      {request.status === 'pending' && (
+                        <div className="flex space-x-1 ml-2">
+                          <button
+                            onClick={() => handleEditRequest(request)}
+                            className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                            title="Modifica richiesta"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => setShowDeleteConfirm(request)}
+                            className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                            title="Cancella richiesta"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
                   
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
