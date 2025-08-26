@@ -1345,7 +1345,7 @@ const RequestsList = ({ requests, onAction }) => {
 };
 
 // Employee Management Component
-const EmployeeManagement = ({ employees, onRefresh }) => {
+const EmployeeManagement = ({ employees, onRefresh, onViewEmployee }) => {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [newEmployee, setNewEmployee] = useState({ username: '', email: '', password: '' });
   const [loading, setLoading] = useState(false);
