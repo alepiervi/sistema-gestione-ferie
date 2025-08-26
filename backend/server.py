@@ -753,6 +753,43 @@ async def get_personal_years(current_user: User = Depends(get_current_user)):
     
     return {"years": sorted(years, reverse=True)}
 
+class YearlyStats(BaseModel):
+    year: int
+    ferie_days: int
+    permessi_count: int
+    malattie_days: int
+    total_requests: int
+
+class VacationAllowance(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    user_id: str
+    year: int
+    max_days: int = 20  # Giorni ferie massimi per l'anno
+    used_days: int = 0  # Giorni utilizzati
+    carried_over_days: int = 0  # Giorni riportati dall'anno precedente
+    remaining_days: int = 20  # Giorni rimanenti (max_days + carried_over - used_days)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: Optional[datetime] = None
+
+class VacationAllowanceCreate(BaseModel):
+    user_id: str
+    year: int
+    max_days: int
+    
+    @validator('max_days')
+    def validate_max_days(cls, v):
+        if v < 0 or v > 50:
+            raise ValueError('I giorni massimi devono essere tra 0 e 50')
+        return v
+
+class VacationSummary(BaseModel):
+    year: int
+    max_days: int
+    used_days: int
+    carried_over_days: int
+    remaining_days: int
+    can_carry_over: int  # Giorni che possono essere riportati all'anno successivo
+
 # Change password
 @api_router.put("/change-password")
 async def change_password(
