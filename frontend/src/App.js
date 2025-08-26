@@ -1131,7 +1131,20 @@ const AdminDashboard = ({ currentPage, setCurrentPage }) => {
       )}
 
       {currentPage === 'employees' && (
-        <EmployeeManagement employees={employees} onRefresh={loadDashboardData} />
+        <EmployeeManagement employees={employees} onRefresh={loadDashboardData} onViewEmployee={(employee) => {
+          setSelectedEmployee(employee);
+          setCurrentPage('employee-details');
+        }} />
+      )}
+
+      {currentPage === 'employee-details' && selectedEmployee && (
+        <EmployeeDetails 
+          employee={selectedEmployee} 
+          onBack={() => {
+            setCurrentPage('employees');
+            setSelectedEmployee(null);
+          }} 
+        />
       )}
 
       {currentPage === 'settings' && (
