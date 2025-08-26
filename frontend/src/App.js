@@ -256,6 +256,18 @@ const EmployeeDashboard = ({ currentPage, setCurrentPage, user }) => {
             <Plus className="h-4 w-4" />
             <span>Nuova richiesta</span>
           </button>
+          
+          <button
+            onClick={() => setCurrentPage('stats')}
+            className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-all ${
+              currentPage === 'stats' 
+                ? 'bg-blue-600 text-white shadow-md' 
+                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+            }`}
+          >
+            <BarChart3 className="h-4 w-4" />
+            <span>Le mie statistiche</span>
+          </button>
         </div>
       </div>
 
