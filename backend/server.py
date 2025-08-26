@@ -573,18 +573,185 @@ async def delete_request(
     
     return {"message": "Richiesta cancellata con successo"}
 
-class UserStats(BaseModel):
-    ferie_days: int
-    permessi_count: int
-    malattie_days: int
-    year: int
+# Get employee stats (admin only)
+@api_router.get("/admin/employees/{employee_id}/stats")
+async def get_employee_stats(
+    employee_id: str,
+    year: int = datetime.now().year,
+    current_user: User = Depends(get_current_user)
+):
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Accesso negato")
     
-class YearlyStats(BaseModel):
-    year: int
-    ferie_days: int
-    permessi_count: int
-    malattie_days: int
-    total_requests: int
+    # Check if employee exists
+    employee = await db.users.find_one({"id": employee_id, "role": "employee"})
+    if not employee:
+        raise HTTPException(status_code=404, detail="Dipendente non trovato")
+    
+    # Get all approved requests for the employee in the specified year
+    start_date = datetime(year, 1, 1)
+    end_date = datetime(year, 12, 31, 23, 59, 59)
+    
+    pipeline = [
+        {
+            "$match": {
+                "user_id": employee_id,
+                "status": "approved",
+                "created_at": {
+                    "$gte": start_date,
+                    "$lte": end_date
+                }
+            }
+        },
+        {
+            "$group": {
+                "_id": "$type",
+                "count": {"$sum": 1},
+                "days": {
+                    "$sum": {
+                        "$switch": {
+                            "branches": [
+                                {"case": {"$eq": ["$type", "ferie"]}, "then": {"$add": [{"$subtract": [{"$dateFromString": {"dateString": "$end_date"}}, {"$dateFromString": {"dateString": "$start_date"}}]}, 86400000]}},
+                                {"case": {"$eq": ["$type", "malattia"]}, "then": "$sick_days"}
+                            ],
+                            "default": 0
+                        }
+                    }
+                }
+            }
+        }
+    ]
+    
+    # Simplified approach - get all requests and calculate in Python
+    requests = await db.requests.find({
+        "user_id": employee_id,
+        "status": "approved",
+        "created_at": {"$gte": start_date, "$lte": end_date}
+    }).to_list(None)
+    
+    ferie_days = 0
+    permessi_count = 0
+    malattie_days = 0
+    
+    for req in requests:
+        if req['type'] == 'ferie':
+            # Calculate days between start_date and end_date
+            if req.get('start_date') and req.get('end_date'):
+                start = datetime.fromisoformat(req['start_date']) if isinstance(req['start_date'], str) else req['start_date']
+                end = datetime.fromisoformat(req['end_date']) if isinstance(req['end_date'], str) else req['end_date']
+                ferie_days += (end - start).days + 1
+        elif req['type'] == 'permesso':
+            permessi_count += 1
+        elif req['type'] == 'malattia':
+            malattie_days += req.get('sick_days', 0)
+    
+    return {
+        "employee": {
+            "id": employee['id'],
+            "username": employee['username'],
+            "email": employee['email']
+        },
+        "year": year,
+        "stats": {
+            "ferie_days": ferie_days,
+            "permessi_count": permessi_count,
+            "malattie_days": malattie_days,
+            "total_requests": len(requests)
+        }
+    }
+
+# Get available years for employee stats
+@api_router.get("/admin/employees/{employee_id}/years")
+async def get_employee_years(
+    employee_id: str,
+    current_user: User = Depends(get_current_user)
+):
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Accesso negato")
+    
+    # Get all years where the employee has requests
+    pipeline = [
+        {"$match": {"user_id": employee_id}},
+        {"$group": {"_id": {"$year": "$created_at"}}},
+        {"$sort": {"_id": -1}}
+    ]
+    
+    years_result = await db.requests.aggregate(pipeline).to_list(None)
+    years = [item['_id'] for item in years_result]
+    
+    # Always include current year
+    current_year = datetime.now().year
+    if current_year not in years:
+        years.insert(0, current_year)
+    
+    return {"years": sorted(years, reverse=True)}
+
+# Get personal stats (employee)
+@api_router.get("/stats")
+async def get_personal_stats(
+    year: int = datetime.now().year,
+    current_user: User = Depends(get_current_user)
+):
+    if current_user.role != "employee":
+        raise HTTPException(status_code=403, detail="Solo i dipendenti possono vedere le proprie statistiche")
+    
+    # Get all approved requests for the current user in the specified year
+    start_date = datetime(year, 1, 1)
+    end_date = datetime(year, 12, 31, 23, 59, 59)
+    
+    requests = await db.requests.find({
+        "user_id": current_user.id,
+        "status": "approved",
+        "created_at": {"$gte": start_date, "$lte": end_date}
+    }).to_list(None)
+    
+    ferie_days = 0
+    permessi_count = 0
+    malattie_days = 0
+    
+    for req in requests:
+        if req['type'] == 'ferie':
+            if req.get('start_date') and req.get('end_date'):
+                start = datetime.fromisoformat(req['start_date']) if isinstance(req['start_date'], str) else req['start_date']
+                end = datetime.fromisoformat(req['end_date']) if isinstance(req['end_date'], str) else req['end_date']
+                ferie_days += (end - start).days + 1
+        elif req['type'] == 'permesso':
+            permessi_count += 1
+        elif req['type'] == 'malattia':
+            malattie_days += req.get('sick_days', 0)
+    
+    return {
+        "year": year,
+        "stats": {
+            "ferie_days": ferie_days,
+            "permessi_count": permessi_count,
+            "malattie_days": malattie_days,
+            "total_requests": len(requests)
+        }
+    }
+
+# Get available years for personal stats
+@api_router.get("/years")
+async def get_personal_years(current_user: User = Depends(get_current_user)):
+    if current_user.role != "employee":
+        raise HTTPException(status_code=403, detail="Solo i dipendenti possono vedere le proprie statistiche")
+    
+    # Get all years where the user has requests
+    pipeline = [
+        {"$match": {"user_id": current_user.id}},
+        {"$group": {"_id": {"$year": "$created_at"}}},
+        {"$sort": {"_id": -1}}
+    ]
+    
+    years_result = await db.requests.aggregate(pipeline).to_list(None)
+    years = [item['_id'] for item in years_result]
+    
+    # Always include current year
+    current_year = datetime.now().year
+    if current_year not in years:
+        years.insert(0, current_year)
+    
+    return {"years": sorted(years, reverse=True)}
 
 # Change password
 @api_router.put("/change-password")
