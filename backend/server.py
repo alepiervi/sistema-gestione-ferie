@@ -573,6 +573,19 @@ async def delete_request(
     
     return {"message": "Richiesta cancellata con successo"}
 
+class UserStats(BaseModel):
+    ferie_days: int
+    permessi_count: int
+    malattie_days: int
+    year: int
+    
+class YearlyStats(BaseModel):
+    year: int
+    ferie_days: int
+    permessi_count: int
+    malattie_days: int
+    total_requests: int
+
 # Change password
 @api_router.put("/change-password")
 async def change_password(
