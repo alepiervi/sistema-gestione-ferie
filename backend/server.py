@@ -224,6 +224,134 @@ async def send_email(to_email: str, subject: str, body: str, html_body: str = No
         logging.error(f"Failed to send email: {e}")
         return False
 
+async def send_email(to_email: str, subject: str, body: str, html_body: str = None):
+    """Send email using SMTP Gmail"""
+    try:
+        if not email_settings.admin_email or not email_settings.admin_password:
+            logging.warning("Email credentials not configured")
+            return False
+        
+        msg = MIMEMultipart('alternative')
+        msg['From'] = f"{email_settings.from_name} <{email_settings.admin_email}>"
+        msg['To'] = to_email
+        msg['Subject'] = subject
+        
+        # Add plain text
+        text_part = MIMEText(body, 'plain', 'utf-8')
+        msg.attach(text_part)
+        
+        # Add HTML if provided
+        if html_body:
+            html_part = MIMEText(html_body, 'html', 'utf-8')
+            msg.attach(html_part)
+        
+        # Send email
+        server = smtplib.SMTP(email_settings.smtp_server, email_settings.smtp_port)
+        server.starttls()
+        server.login(email_settings.admin_email, email_settings.admin_password)
+        server.send_message(msg)
+        server.quit()
+        
+        logging.info(f"Email sent successfully to {to_email}")
+        return True
+        
+    except Exception as e:
+        logging.error(f"Failed to send email: {e}")
+        return False
+
+async def calculate_used_vacation_days(user_id: str, year: int) -> int:
+    """Calculate used vacation days for a user in a specific year"""
+    start_date = datetime(year, 1, 1)
+    end_date = datetime(year, 12, 31, 23, 59, 59)
+    
+    requests = await db.requests.find({
+        "user_id": user_id,
+        "type": "ferie",
+        "status": "approved",
+        "created_at": {"$gte": start_date, "$lte": end_date}
+    }).to_list(None)
+    
+    total_days = 0
+    for req in requests:
+        if req.get('start_date') and req.get('end_date'):
+            start = datetime.fromisoformat(req['start_date']) if isinstance(req['start_date'], str) else req['start_date']
+            end = datetime.fromisoformat(req['end_date']) if isinstance(req['end_date'], str) else req['end_date']
+            total_days += (end - start).days + 1
+    
+    return total_days
+
+async def get_or_create_vacation_allowance(user_id: str, year: int, default_max_days: int = 20):
+    """Get existing vacation allowance or create new one"""
+    allowance = await db.vacation_allowances.find_one({"user_id": user_id, "year": year})
+    
+    if not allowance:
+        # Calculate used days for the year
+        used_days = await calculate_used_vacation_days(user_id, year)
+        
+        # Calculate carried over days from previous year
+        carried_over_days = 0
+        prev_year_allowance = await db.vacation_allowances.find_one({"user_id": user_id, "year": year - 1})
+        if prev_year_allowance:
+            carried_over_days = max(0, prev_year_allowance['remaining_days'])
+        
+        # Create new allowance
+        allowance_data = {
+            "id": str(uuid.uuid4()),
+            "user_id": user_id,
+            "year": year,
+            "max_days": default_max_days,
+            "used_days": used_days,
+            "carried_over_days": carried_over_days,
+            "remaining_days": default_max_days + carried_over_days - used_days,
+            "created_at": datetime.utcnow()
+        }
+        
+        await db.vacation_allowances.insert_one(allowance_data)
+        allowance = allowance_data
+    
+    return allowance
+
+async def recalculate_vacation_allowance(user_id: str, year: int):
+    """Recalculate vacation allowance for a specific year"""
+    allowance = await db.vacation_allowances.find_one({"user_id": user_id, "year": year})
+    if not allowance:
+        return await get_or_create_vacation_allowance(user_id, year)
+    
+    # Recalculate used days
+    used_days = await calculate_used_vacation_days(user_id, year)
+    
+    # Calculate remaining days
+    remaining_days = allowance['max_days'] + allowance['carried_over_days'] - used_days
+    
+    # Update allowance
+    await db.vacation_allowances.update_one(
+        {"user_id": user_id, "year": year},
+        {
+            "$set": {
+                "used_days": used_days,
+                "remaining_days": remaining_days,
+                "updated_at": datetime.utcnow()
+            }
+        }
+    )
+    
+    # Update next year's carried over days if exists
+    next_year_allowance = await db.vacation_allowances.find_one({"user_id": user_id, "year": year + 1})
+    if next_year_allowance:
+        can_carry_over = max(0, remaining_days)
+        await db.vacation_allowances.update_one(
+            {"user_id": user_id, "year": year + 1},
+            {
+                "$set": {
+                    "carried_over_days": can_carry_over,
+                    "remaining_days": next_year_allowance['max_days'] + can_carry_over - next_year_allowance['used_days'],
+                    "updated_at": datetime.utcnow()
+                }
+            }
+        )
+    
+    return await db.vacation_allowances.find_one({"user_id": user_id, "year": year})
+
 # ===== ROUTES =====
 
 @api_router.get("/")
