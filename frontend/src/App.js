@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import "./App.css";
 import axios from "axios";
-import { Calendar, Users, Clock, Activity, Settings, LogOut, Plus, Mail, CheckCircle, XCircle, Bell, Edit, Trash2, ArrowLeft, BarChart3, TrendingUp, User } from "lucide-react";
+import { Calendar, Users, Clock, Activity, Settings, LogOut, Plus, Mail, CheckCircle, XCircle, Bell, Edit, Trash2, ArrowLeft, BarChart3, TrendingUp, User, Calculator, Save, AlertCircle } from "lucide-react";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
