@@ -1000,6 +1000,7 @@ const AdminDashboard = ({ currentPage, setCurrentPage }) => {
   const [stats, setStats] = useState({ pending_ferie: 0, pending_permessi: 0, pending_malattie: 0, total_pending: 0 });
   const [requests, setRequests] = useState([]);
   const [employees, setEmployees] = useState([]);
+  const [selectedEmployee, setSelectedEmployee] = useState(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
