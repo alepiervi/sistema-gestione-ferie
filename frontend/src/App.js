@@ -432,6 +432,160 @@ const EmployeeDashboard = ({ currentPage, setCurrentPage, user }) => {
   );
 };
 
+// Employee Stats Component
+const EmployeeStats = () => {
+  const [stats, setStats] = useState(null);
+  const [years, setYears] = useState([]);
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    loadYears();
+  }, []);
+
+  useEffect(() => {
+    if (selectedYear) {
+      loadStats();
+    }
+  }, [selectedYear]);
+
+  const loadYears = async () => {
+    try {
+      const response = await axios.get(`${API}/years`);
+      setYears(response.data.years);
+    } catch (error) {
+      console.error('Errore nel caricamento degli anni:', error);
+    }
+  };
+
+  const loadStats = async () => {
+    setLoading(true);
+    try {
+      const response = await axios.get(`${API}/stats?year=${selectedYear}`);
+      setStats(response.data);
+    } catch (error) {
+      console.error('Errore nel caricamento delle statistiche:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="bg-white/80 backdrop-blur-md rounded-xl p-6 shadow-sm border border-slate-200/50">
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-xl font-semibold text-slate-800 flex items-center">
+            <BarChart3 className="h-5 w-5 mr-2 text-blue-600" />
+            Le Mie Statistiche
+          </h2>
+          
+          <div className="flex items-center space-x-3">
+            <label className="text-sm font-medium text-slate-700">Anno:</label>
+            <select
+              value={selectedYear}
+              onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+              className="px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              {years.map(year => (
+                <option key={year} value={year}>{year}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {loading ? (
+          <div className="flex justify-center py-12">
+            <div className="spinner" />
+          </div>
+        ) : stats ? (
+          <div className="space-y-6">
+            {/* Statistics Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="bg-gradient-to-br from-blue-500 to-blue-600 p-6 rounded-xl text-white">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-blue-100">Ferie Prese</p>
+                    <p className="text-3xl font-bold">{stats.stats.ferie_days}</p>
+                    <p className="text-blue-200 text-sm">giorni nel {stats.year}</p>
+                  </div>
+                  <Calendar className="h-12 w-12 text-blue-200" />
+                </div>
+              </div>
+              
+              <div className="bg-gradient-to-br from-green-500 to-green-600 p-6 rounded-xl text-white">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-green-100">Permessi Presi</p>
+                    <p className="text-3xl font-bold">{stats.stats.permessi_count}</p>
+                    <p className="text-green-200 text-sm">richieste nel {stats.year}</p>
+                  </div>
+                  <Clock className="h-12 w-12 text-green-200" />
+                </div>
+              </div>
+              
+              <div className="bg-gradient-to-br from-orange-500 to-orange-600 p-6 rounded-xl text-white">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-orange-100">Malattie</p>
+                    <p className="text-3xl font-bold">{stats.stats.malattie_days}</p>
+                    <p className="text-orange-200 text-sm">giorni nel {stats.year}</p>
+                  </div>
+                  <Activity className="h-12 w-12 text-orange-200" />
+                </div>
+              </div>
+            </div>
+
+            {/* Summary Card */}
+            <div className="bg-gradient-to-r from-purple-500 to-indigo-600 p-6 rounded-xl text-white">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg font-semibold mb-2">Riepilogo Anno {stats.year}</h3>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                    <div>
+                      <p className="text-purple-200">Totale Richieste</p>
+                      <p className="text-xl font-bold">{stats.stats.total_requests}</p>
+                    </div>
+                    <div>
+                      <p className="text-purple-200">Giorni Ferie</p>
+                      <p className="text-xl font-bold">{stats.stats.ferie_days}</p>
+                    </div>
+                    <div>
+                      <p className="text-purple-200">Permessi</p>
+                      <p className="text-xl font-bold">{stats.stats.permessi_count}</p>
+                    </div>
+                    <div>
+                      <p className="text-purple-200">Giorni Malattia</p>
+                      <p className="text-xl font-bold">{stats.stats.malattie_days}</p>
+                    </div>
+                  </div>
+                </div>
+                <TrendingUp className="h-16 w-16 text-purple-200" />
+              </div>
+            </div>
+
+            {/* Info Card */}
+            <div className="bg-blue-50 border border-blue-200 p-4 rounded-lg">
+              <h4 className="font-semibold text-blue-800 mb-2">📊 Informazioni Statistiche</h4>
+              <ul className="text-blue-700 text-sm space-y-1">
+                <li>• Vengono conteggiate solo le richieste <strong>approvate</strong></li>
+                <li>• Le ferie sono calcolate in giorni consecutivi (weekends inclusi)</li>
+                <li>• I permessi sono conteggiati come numero di richieste</li>
+                <li>• Le malattie sono calcolate in giorni totali</li>
+                <li>• I dati sono aggiornati in tempo reale</li>
+              </ul>
+            </div>
+          </div>
+        ) : (
+          <div className="text-center py-12">
+            <BarChart3 className="h-16 w-16 text-slate-300 mx-auto mb-4" />
+            <p className="text-slate-500">Nessun dato disponibile per l'anno selezionato</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
 // Edit Request Form Component
 const EditRequestForm = ({ request, onSuccess, onCancel }) => {
   const [requestType, setRequestType] = useState(request.type);
