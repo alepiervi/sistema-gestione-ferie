@@ -435,12 +435,14 @@ const EmployeeDashboard = ({ currentPage, setCurrentPage, user }) => {
 // Employee Stats Component
 const EmployeeStats = () => {
   const [stats, setStats] = useState(null);
+  const [vacationSummary, setVacationSummary] = useState(null);
   const [years, setYears] = useState([]);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     loadYears();
+    loadVacationSummary();
   }, []);
 
   useEffect(() => {
@@ -455,6 +457,15 @@ const EmployeeStats = () => {
       setYears(response.data.years);
     } catch (error) {
       console.error('Errore nel caricamento degli anni:', error);
+    }
+  };
+
+  const loadVacationSummary = async () => {
+    try {
+      const response = await axios.get(`${API}/vacation-summary`);
+      setVacationSummary(response.data);
+    } catch (error) {
+      console.error('Errore nel caricamento del riepilogo ferie:', error);
     }
   };
 
@@ -492,6 +503,92 @@ const EmployeeStats = () => {
             </select>
           </div>
         </div>
+
+        {/* Vacation Summary */}
+        {vacationSummary && (
+          <div className="mb-8">
+            <div className="bg-gradient-to-r from-emerald-500 to-teal-600 p-6 rounded-xl text-white mb-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-xl font-semibold mb-2">Riepilogo Ferie Totali</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <p className="text-emerald-200 text-sm">Ferie Rimanenti Totali</p>
+                      <p className="text-3xl font-bold">{vacationSummary.total_remaining_days}</p>
+                      <p className="text-emerald-200 text-xs">giorni disponibili</p>
+                    </div>
+                    <div>
+                      <p className="text-emerald-200 text-sm">Usate Quest'Anno</p>
+                      <p className="text-3xl font-bold">{vacationSummary.used_this_year}</p>
+                      <p className="text-emerald-200 text-xs">giorni nel {vacationSummary.current_year}</p>
+                    </div>
+                    <div>
+                      <p className="text-emerald-200 text-sm">Anni con Ferie</p>
+                      <p className="text-3xl font-bold">{vacationSummary.vacation_by_year.length}</p>
+                      <p className="text-emerald-200 text-xs">anni registrati</p>
+                    </div>
+                  </div>
+                </div>
+                <Calculator className="h-16 w-16 text-emerald-200" />
+              </div>
+            </div>
+
+            {/* Vacation Breakdown by Year */}
+            <div className="bg-slate-50 border border-slate-200 p-6 rounded-xl">
+              <h3 className="text-lg font-semibold text-slate-800 mb-4 flex items-center">
+                <Calendar className="h-5 w-5 mr-2 text-blue-600" />
+                Dettaglio Ferie per Anno
+              </h3>
+              
+              <div className="space-y-3">
+                {vacationSummary.vacation_by_year.map((yearData) => (
+                  <div key={yearData.year} className="bg-white border border-slate-200 rounded-lg p-4">
+                    <div className="flex justify-between items-center mb-3">
+                      <h4 className="font-semibold text-slate-800">Anno {yearData.year}</h4>
+                      <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                        yearData.remaining_days > 0 
+                          ? 'bg-green-100 text-green-800 border border-green-200' 
+                          : yearData.remaining_days === 0
+                          ? 'bg-yellow-100 text-yellow-800 border border-yellow-200'
+                          : 'bg-red-100 text-red-800 border border-red-200'
+                      }`}>
+                        {yearData.remaining_days > 0 ? 'Ferie Disponibili' : 
+                         yearData.remaining_days === 0 ? 'Ferie Esaurite' : 'Ferie in Eccesso'}
+                      </span>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm">
+                      <div>
+                        <span className="text-slate-600">Massime:</span>
+                        <p className="font-bold text-slate-800">{yearData.max_days} giorni</p>
+                      </div>
+                      <div>
+                        <span className="text-slate-600">Utilizzate:</span>
+                        <p className="font-bold text-slate-800">{yearData.used_days} giorni</p>
+                      </div>
+                      <div>
+                        <span className="text-slate-600">Riportate:</span>
+                        <p className="font-bold text-slate-800">{yearData.carried_over_days} giorni</p>
+                      </div>
+                      <div>
+                        <span className="text-slate-600">Rimanenti:</span>
+                        <p className={`font-bold ${yearData.remaining_days >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                          {yearData.remaining_days} giorni
+                        </p>
+                      </div>
+                      {yearData.year < vacationSummary.current_year && (
+                        <div>
+                          <span className="text-slate-600">Riportabili:</span>
+                          <p className="font-bold text-blue-600">{yearData.can_carry_over} giorni</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
 
         {loading ? (
           <div className="flex justify-center py-12">
@@ -565,13 +662,16 @@ const EmployeeStats = () => {
 
             {/* Info Card */}
             <div className="bg-blue-50 border border-blue-200 p-4 rounded-lg">
-              <h4 className="font-semibold text-blue-800 mb-2">📊 Informazioni Statistiche</h4>
+              <h4 className="font-semibold text-blue-800 mb-2 flex items-center">
+                <AlertCircle className="h-4 w-4 mr-2" />
+                📊 Informazioni Sistema Ferie
+              </h4>
               <ul className="text-blue-700 text-sm space-y-1">
+                <li>• Le ferie non utilizzate in un anno vengono riportate all'anno successivo</li>
+                <li>• Se utilizzi più ferie di quelle assegnate, vengono scalate dai riporti</li>
                 <li>• Vengono conteggiate solo le richieste <strong>approvate</strong></li>
-                <li>• Le ferie sono calcolate in giorni consecutivi (weekends inclusi)</li>
-                <li>• I permessi sono conteggiati come numero di richieste</li>
-                <li>• Le malattie sono calcolate in giorni totali</li>
-                <li>• I dati sono aggiornati in tempo reale</li>
+                <li>• I permessi e le malattie non si accumulano tra anni</li>
+                <li>• I dati sono aggiornati automaticamente quando l'admin approva le richieste</li>
               </ul>
             </div>
           </div>
