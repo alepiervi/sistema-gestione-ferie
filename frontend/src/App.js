@@ -1461,14 +1461,23 @@ const EmployeeManagement = ({ employees, onRefresh, onViewEmployee }) => {
                   <h3 className="font-semibold text-slate-800">{employee.username}</h3>
                   <p className="text-slate-600 text-sm">{employee.email}</p>
                 </div>
-                <div className="text-right">
-                  <span className={`inline-block w-2 h-2 rounded-full ${employee.is_active ? 'bg-green-500' : 'bg-red-500'}`} />
-                  <span className="ml-2 text-sm text-slate-600">
-                    {employee.is_active ? 'Attivo' : 'Inattivo'}
-                  </span>
-                  <div className="text-xs text-slate-500 mt-1">
-                    Creato: {new Date(employee.created_at).toLocaleDateString('it-IT')}
+                <div className="flex items-center space-x-3">
+                  <div className="text-right">
+                    <span className={`inline-block w-2 h-2 rounded-full ${employee.is_active ? 'bg-green-500' : 'bg-red-500'}`} />
+                    <span className="ml-2 text-sm text-slate-600">
+                      {employee.is_active ? 'Attivo' : 'Inattivo'}
+                    </span>
+                    <div className="text-xs text-slate-500 mt-1">
+                      Creato: {new Date(employee.created_at).toLocaleDateString('it-IT')}
+                    </div>
                   </div>
+                  <button
+                    onClick={() => onViewEmployee(employee)}
+                    className="flex items-center space-x-2 bg-blue-600 text-white px-3 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm"
+                  >
+                    <User className="h-4 w-4" />
+                    <span>Dettagli</span>
+                  </button>
                 </div>
               </div>
             </div>
