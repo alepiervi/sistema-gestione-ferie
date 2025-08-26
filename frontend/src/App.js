@@ -398,6 +398,10 @@ const EmployeeDashboard = ({ currentPage, setCurrentPage, user }) => {
         />
       )}
 
+      {currentPage === 'stats' && (
+        <EmployeeStats />
+      )}
+
       {/* Delete Confirmation Modal */}
       {showDeleteConfirm && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
