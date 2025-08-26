@@ -593,6 +593,9 @@ async def respond_to_request(
     
     await db.requests.update_one({"id": request_id}, {"$set": update_data})
     
+    # Recalculate vacation allowances if it's a vacation request
+    await update_vacation_on_request_change(request_doc['user_id'], request_doc['type'])
+    
     # Send notification to employee
     user = await db.users.find_one({"id": request_doc['user_id']})
     if user:
