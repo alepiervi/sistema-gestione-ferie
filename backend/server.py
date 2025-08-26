@@ -881,6 +881,167 @@ async def get_personal_years(current_user: User = Depends(get_current_user)):
     
     return {"years": sorted(years, reverse=True)}
 
+# Vacation allowance management
+@api_router.get("/admin/employees/{employee_id}/vacation-summary")
+async def get_employee_vacation_summary(
+    employee_id: str,
+    current_user: User = Depends(get_current_user)
+):
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Accesso negato")
+    
+    # Check if employee exists
+    employee = await db.users.find_one({"id": employee_id, "role": "employee"})
+    if not employee:
+        raise HTTPException(status_code=404, detail="Dipendente non trovato")
+    
+    # Get all vacation allowances for the employee
+    allowances = await db.vacation_allowances.find({"user_id": employee_id}).sort("year", -1).to_list(None)
+    
+    # Get current year and ensure it exists
+    current_year = datetime.now().year
+    current_allowance = await get_or_create_vacation_allowance(employee_id, current_year)
+    
+    # Ensure current year is included
+    years_in_db = {a['year'] for a in allowances}
+    if current_year not in years_in_db:
+        allowances.insert(0, current_allowance)
+        allowances.sort(key=lambda x: x['year'], reverse=True)
+    
+    # Calculate totals
+    total_remaining = sum(max(0, a['remaining_days']) for a in allowances)
+    total_used_this_year = current_allowance['used_days']
+    
+    return {
+        "employee": {
+            "id": employee['id'],
+            "username": employee['username'],
+            "email": employee['email']
+        },
+        "current_year": current_year,
+        "total_remaining_days": total_remaining,
+        "used_this_year": total_used_this_year,
+        "vacation_by_year": [
+            {
+                "year": a['year'],
+                "max_days": a['max_days'],
+                "used_days": a['used_days'],
+                "carried_over_days": a['carried_over_days'],
+                "remaining_days": a['remaining_days'],
+                "can_carry_over": max(0, a['remaining_days']) if a['year'] < current_year else a['remaining_days']
+            }
+            for a in allowances
+        ]
+    }
+
+@api_router.put("/admin/employees/{employee_id}/vacation-allowance/{year}")
+async def update_vacation_allowance(
+    employee_id: str,
+    year: int,
+    allowance_data: dict,
+    current_user: User = Depends(get_current_user)
+):
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Accesso negato")
+    
+    # Validate data
+    max_days = allowance_data.get('max_days')
+    if max_days is None or max_days < 0 or max_days > 50:
+        raise HTTPException(status_code=400, detail="Giorni massimi devono essere tra 0 e 50")
+    
+    # Get or create allowance
+    allowance = await get_or_create_vacation_allowance(employee_id, year, max_days)
+    
+    # Update max days
+    await db.vacation_allowances.update_one(
+        {"user_id": employee_id, "year": year},
+        {
+            "$set": {
+                "max_days": max_days,
+                "updated_at": datetime.utcnow()
+            }
+        }
+    )
+    
+    # Recalculate all affected years
+    await recalculate_vacation_allowance(employee_id, year)
+    
+    # If this is not the current year, recalculate subsequent years
+    current_year = datetime.now().year
+    if year < current_year:
+        for future_year in range(year + 1, current_year + 1):
+            future_allowance = await db.vacation_allowances.find_one({"user_id": employee_id, "year": future_year})
+            if future_allowance:
+                await recalculate_vacation_allowance(employee_id, future_year)
+    
+    return {"message": "Giorni ferie aggiornati con successo"}
+
+@api_router.get("/vacation-summary")
+async def get_personal_vacation_summary(current_user: User = Depends(get_current_user)):
+    if current_user.role != "employee":
+        raise HTTPException(status_code=403, detail="Solo i dipendenti possono vedere le proprie ferie")
+    
+    # Get all vacation allowances for the user
+    allowances = await db.vacation_allowances.find({"user_id": current_user.id}).sort("year", -1).to_list(None)
+    
+    # Get current year and ensure it exists
+    current_year = datetime.now().year
+    current_allowance = await get_or_create_vacation_allowance(current_user.id, current_year)
+    
+    # Ensure current year is included
+    years_in_db = {a['year'] for a in allowances}
+    if current_year not in years_in_db:
+        allowances.insert(0, current_allowance)
+        allowances.sort(key=lambda x: x['year'], reverse=True)
+    
+    # Calculate totals
+    total_remaining = sum(max(0, a['remaining_days']) for a in allowances)
+    total_used_this_year = current_allowance['used_days']
+    
+    return {
+        "current_year": current_year,
+        "total_remaining_days": total_remaining,
+        "used_this_year": total_used_this_year,
+        "vacation_by_year": [
+            {
+                "year": a['year'],
+                "max_days": a['max_days'],
+                "used_days": a['used_days'],
+                "carried_over_days": a['carried_over_days'],
+                "remaining_days": a['remaining_days'],
+                "can_carry_over": max(0, a['remaining_days']) if a['year'] < current_year else a['remaining_days']
+            }
+            for a in allowances
+        ]
+    }
+
+# Automatically recalculate vacation allowances when vacation requests are approved/rejected
+async def update_vacation_on_request_change(user_id: str, request_type: str):
+    """Update vacation allowances when requests change"""
+    if request_type != "ferie":
+        return
+    
+    # Get all years that might be affected
+    current_year = datetime.now().year
+    years_to_update = []
+    
+    # Find all years with vacation requests for this user
+    pipeline = [
+        {"$match": {"user_id": user_id, "type": "ferie", "status": "approved"}},
+        {"$group": {"_id": {"$year": "$created_at"}}},
+    ]
+    
+    years_result = await db.requests.aggregate(pipeline).to_list(None)
+    request_years = [item['_id'] for item in years_result]
+    
+    # Always include current year
+    request_years.append(current_year)
+    years_to_update = sorted(set(request_years))
+    
+    # Recalculate each year
+    for year in years_to_update:
+        await recalculate_vacation_allowance(user_id, year)
+
 class YearlyStats(BaseModel):
     year: int
     ferie_days: int
