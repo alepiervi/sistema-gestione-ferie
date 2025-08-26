@@ -1488,6 +1488,221 @@ const EmployeeManagement = ({ employees, onRefresh, onViewEmployee }) => {
   );
 };
 
+// Employee Details Component (Admin)
+const EmployeeDetails = ({ employee, onBack }) => {
+  const [stats, setStats] = useState(null);
+  const [years, setYears] = useState([]);
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    loadYears();
+  }, []);
+
+  useEffect(() => {
+    if (selectedYear) {
+      loadStats();
+    }
+  }, [selectedYear]);
+
+  const loadYears = async () => {
+    try {
+      const response = await axios.get(`${API}/admin/employees/${employee.id}/years`);
+      setYears(response.data.years);
+    } catch (error) {
+      console.error('Errore nel caricamento degli anni:', error);
+    }
+  };
+
+  const loadStats = async () => {
+    setLoading(true);
+    try {
+      const response = await axios.get(`${API}/admin/employees/${employee.id}/stats?year=${selectedYear}`);
+      setStats(response.data);
+    } catch (error) {
+      console.error('Errore nel caricamento delle statistiche:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Header with Back Button */}
+      <div className="bg-white/80 backdrop-blur-md rounded-xl p-6 shadow-sm border border-slate-200/50">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-4">
+            <button
+              onClick={onBack}
+              className="flex items-center space-x-2 text-slate-600 hover:text-slate-800 transition-colors"
+            >
+              <ArrowLeft className="h-5 w-5" />
+              <span>Torna alla lista</span>
+            </button>
+            <div className="h-6 w-px bg-slate-300" />
+            <div>
+              <h1 className="text-2xl font-bold text-slate-800 flex items-center">
+                <User className="h-6 w-6 mr-2 text-blue-600" />
+                {employee.username}
+              </h1>
+              <p className="text-slate-600">{employee.email}</p>
+            </div>
+          </div>
+          
+          <div className="flex items-center space-x-3">
+            <label className="text-sm font-medium text-slate-700">Anno:</label>
+            <select
+              value={selectedYear}
+              onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+              className="px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              {years.map(year => (
+                <option key={year} value={year}>{year}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {/* Statistics */}
+      <div className="bg-white/80 backdrop-blur-md rounded-xl p-6 shadow-sm border border-slate-200/50">
+        <h2 className="text-xl font-semibold text-slate-800 mb-6 flex items-center">
+          <BarChart3 className="h-5 w-5 mr-2 text-blue-600" />
+          Statistiche Dipendente - Anno {selectedYear}
+        </h2>
+
+        {loading ? (
+          <div className="flex justify-center py-12">
+            <div className="spinner" />
+          </div>
+        ) : stats ? (
+          <div className="space-y-6">
+            {/* Statistics Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="bg-gradient-to-br from-blue-500 to-blue-600 p-6 rounded-xl text-white">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-blue-100">Ferie Prese</p>
+                    <p className="text-3xl font-bold">{stats.stats.ferie_days}</p>
+                    <p className="text-blue-200 text-sm">giorni nel {stats.year}</p>
+                  </div>
+                  <Calendar className="h-12 w-12 text-blue-200" />
+                </div>
+              </div>
+              
+              <div className="bg-gradient-to-br from-green-500 to-green-600 p-6 rounded-xl text-white">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-green-100">Permessi Presi</p>
+                    <p className="text-3xl font-bold">{stats.stats.permessi_count}</p>
+                    <p className="text-green-200 text-sm">richieste nel {stats.year}</p>
+                  </div>
+                  <Clock className="h-12 w-12 text-green-200" />
+                </div>
+              </div>
+              
+              <div className="bg-gradient-to-br from-orange-500 to-orange-600 p-6 rounded-xl text-white">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-orange-100">Malattie</p>
+                    <p className="text-3xl font-bold">{stats.stats.malattie_days}</p>
+                    <p className="text-orange-200 text-sm">giorni nel {stats.year}</p>
+                  </div>
+                  <Activity className="h-12 w-12 text-orange-200" />
+                </div>
+              </div>
+            </div>
+
+            {/* Detailed Summary */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Summary Card */}
+              <div className="bg-gradient-to-r from-purple-500 to-indigo-600 p-6 rounded-xl text-white">
+                <h3 className="text-lg font-semibold mb-4">Riepilogo {stats.year}</h3>
+                <div className="space-y-3">
+                  <div className="flex justify-between">
+                    <span className="text-purple-200">Totale Richieste:</span>
+                    <span className="font-bold">{stats.stats.total_requests}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-purple-200">Giorni Ferie:</span>
+                    <span className="font-bold">{stats.stats.ferie_days}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-purple-200">Permessi:</span>
+                    <span className="font-bold">{stats.stats.permessi_count}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-purple-200">Giorni Malattia:</span>
+                    <span className="font-bold">{stats.stats.malattie_days}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Employee Info Card */}
+              <div className="bg-slate-50 border border-slate-200 p-6 rounded-xl">
+                <h3 className="text-lg font-semibold text-slate-800 mb-4">Informazioni Dipendente</h3>
+                <div className="space-y-3">
+                  <div className="flex justify-between">
+                    <span className="text-slate-600">Username:</span>
+                    <span className="font-medium text-slate-800">{stats.employee.username}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-600">Email:</span>
+                    <span className="font-medium text-slate-800">{stats.employee.email}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-600">Stato:</span>
+                    <span className="flex items-center">
+                      <span className="w-2 h-2 bg-green-500 rounded-full mr-2" />
+                      <span className="font-medium text-green-700">Attivo</span>
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-600">Creato:</span>
+                    <span className="font-medium text-slate-800">
+                      {new Date(employee.created_at).toLocaleDateString('it-IT')}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Performance Indicator */}
+            <div className="bg-gradient-to-r from-teal-500 to-cyan-600 p-6 rounded-xl text-white">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg font-semibold mb-2">Performance Anno {stats.year}</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <p className="text-teal-200 text-sm">Media Ferie Annuali</p>
+                      <p className="text-2xl font-bold">{stats.stats.ferie_days}/20 giorni</p>
+                    </div>
+                    <div>
+                      <p className="text-teal-200 text-sm">Utilizzo Permessi</p>
+                      <p className="text-2xl font-bold">{stats.stats.permessi_count} richieste</p>
+                    </div>
+                    <div>
+                      <p className="text-teal-200 text-sm">Giorni Malattia</p>
+                      <p className="text-2xl font-bold">{stats.stats.malattie_days} giorni</p>
+                    </div>
+                  </div>
+                </div>
+                <TrendingUp className="h-16 w-16 text-teal-200" />
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="text-center py-12">
+            <BarChart3 className="h-16 w-16 text-slate-300 mx-auto mb-4" />
+            <p className="text-slate-500">Nessun dato disponibile per l'anno selezionato</p>
+            <p className="text-slate-400 text-sm">Il dipendente non ha richieste approvate nel {selectedYear}</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
 // Admin Settings Component
 const AdminSettings = () => {
   const [settings, setSettings] = useState({ email: '' });
