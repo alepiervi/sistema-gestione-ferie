@@ -1591,12 +1591,17 @@ const EmployeeManagement = ({ employees, onRefresh, onViewEmployee }) => {
 // Employee Details Component (Admin)
 const EmployeeDetails = ({ employee, onBack }) => {
   const [stats, setStats] = useState(null);
+  const [vacationSummary, setVacationSummary] = useState(null);
   const [years, setYears] = useState([]);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [loading, setLoading] = useState(false);
+  const [editingYear, setEditingYear] = useState(null);
+  const [editingDays, setEditingDays] = useState('');
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     loadYears();
+    loadVacationSummary();
   }, []);
 
   useEffect(() => {
@@ -1614,6 +1619,15 @@ const EmployeeDetails = ({ employee, onBack }) => {
     }
   };
 
+  const loadVacationSummary = async () => {
+    try {
+      const response = await axios.get(`${API}/admin/employees/${employee.id}/vacation-summary`);
+      setVacationSummary(response.data);
+    } catch (error) {
+      console.error('Errore nel caricamento del riepilogo ferie:', error);
+    }
+  };
+
   const loadStats = async () => {
     setLoading(true);
     try {
@@ -1624,6 +1638,39 @@ const EmployeeDetails = ({ employee, onBack }) => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleEditVacationDays = (year, currentMaxDays) => {
+    setEditingYear(year);
+    setEditingDays(currentMaxDays.toString());
+  };
+
+  const handleSaveVacationDays = async (year) => {
+    setSaving(true);
+    try {
+      await axios.put(`${API}/admin/employees/${employee.id}/vacation-allowance/${year}`, {
+        max_days: parseInt(editingDays)
+      });
+      
+      setEditingYear(null);
+      setEditingDays('');
+      
+      // Reload data
+      await loadVacationSummary();
+      if (selectedYear === year) {
+        await loadStats();
+      }
+    } catch (error) {
+      console.error('Errore nel salvataggio:', error);
+      alert('Errore nel salvataggio dei giorni ferie');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditingYear(null);
+    setEditingDays('');
   };
 
   return (
@@ -1664,11 +1711,139 @@ const EmployeeDetails = ({ employee, onBack }) => {
         </div>
       </div>
 
+      {/* Vacation Management */}
+      {vacationSummary && (
+        <div className="bg-white/80 backdrop-blur-md rounded-xl p-6 shadow-sm border border-slate-200/50">
+          <h2 className="text-xl font-semibold text-slate-800 mb-6 flex items-center">
+            <Calculator className="h-5 w-5 mr-2 text-green-600" />
+            Gestione Ferie - {employee.username}
+          </h2>
+
+          {/* Total Summary */}
+          <div className="bg-gradient-to-r from-emerald-500 to-teal-600 p-6 rounded-xl text-white mb-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-xl font-semibold mb-2">Riepilogo Ferie Totali</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <p className="text-emerald-200 text-sm">Ferie Rimanenti Totali</p>
+                    <p className="text-3xl font-bold">{vacationSummary.total_remaining_days}</p>
+                    <p className="text-emerald-200 text-xs">giorni disponibili</p>
+                  </div>
+                  <div>
+                    <p className="text-emerald-200 text-sm">Usate Quest'Anno</p>
+                    <p className="text-3xl font-bold">{vacationSummary.used_this_year}</p>
+                    <p className="text-emerald-200 text-xs">giorni nel {vacationSummary.current_year}</p>
+                  </div>
+                  <div>
+                    <p className="text-emerald-200 text-sm">Anni Registrati</p>
+                    <p className="text-3xl font-bold">{vacationSummary.vacation_by_year.length}</p>
+                    <p className="text-emerald-200 text-xs">anni con ferie</p>
+                  </div>
+                </div>
+              </div>
+              <Calculator className="h-16 w-16 text-emerald-200" />
+            </div>
+          </div>
+
+          {/* Vacation Breakdown by Year - Editable */}
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold text-slate-800 flex items-center">
+              <Calendar className="h-5 w-5 mr-2 text-blue-600" />
+              Gestione Ferie per Anno (Modificabile)
+            </h3>
+            
+            {vacationSummary.vacation_by_year.map((yearData) => (
+              <div key={yearData.year} className="bg-slate-50 border border-slate-200 rounded-lg p-6">
+                <div className="flex justify-between items-center mb-4">
+                  <div className="flex items-center space-x-4">
+                    <h4 className="text-lg font-semibold text-slate-800">Anno {yearData.year}</h4>
+                    <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                      yearData.remaining_days > 0 
+                        ? 'bg-green-100 text-green-800 border border-green-200' 
+                        : yearData.remaining_days === 0
+                        ? 'bg-yellow-100 text-yellow-800 border border-yellow-200'
+                        : 'bg-red-100 text-red-800 border border-red-200'
+                    }`}>
+                      {yearData.remaining_days > 0 ? 'Ferie Disponibili' : 
+                       yearData.remaining_days === 0 ? 'Ferie Esaurite' : 'Ferie in Eccesso'}
+                    </span>
+                  </div>
+                  
+                  {editingYear === yearData.year ? (
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="number"
+                        value={editingDays}
+                        onChange={(e) => setEditingDays(e.target.value)}
+                        className="w-20 px-2 py-1 border border-slate-300 rounded text-sm"
+                        min="0"
+                        max="50"
+                      />
+                      <span className="text-sm text-slate-600">giorni</span>
+                      <button
+                        onClick={() => handleSaveVacationDays(yearData.year)}
+                        disabled={saving}
+                        className="flex items-center space-x-1 bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-700 disabled:opacity-50"
+                      >
+                        <Save className="h-3 w-3" />
+                        <span>Salva</span>
+                      </button>
+                      <button
+                        onClick={handleCancelEdit}
+                        className="bg-slate-300 text-slate-700 px-3 py-1 rounded text-sm hover:bg-slate-400"
+                      >
+                        Annulla
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => handleEditVacationDays(yearData.year, yearData.max_days)}
+                      className="flex items-center space-x-2 bg-blue-600 text-white px-3 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm"
+                    >
+                      <Edit className="h-4 w-4" />
+                      <span>Modifica Ferie</span>
+                    </button>
+                  )}
+                </div>
+                
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                  <div className="bg-white p-3 rounded border">
+                    <span className="text-slate-600 text-sm">Ferie Massime</span>
+                    <p className="font-bold text-slate-800 text-lg">{yearData.max_days} giorni</p>
+                  </div>
+                  <div className="bg-white p-3 rounded border">
+                    <span className="text-slate-600 text-sm">Utilizzate</span>
+                    <p className="font-bold text-slate-800 text-lg">{yearData.used_days} giorni</p>
+                  </div>
+                  <div className="bg-white p-3 rounded border">
+                    <span className="text-slate-600 text-sm">Riportate</span>
+                    <p className="font-bold text-blue-600 text-lg">{yearData.carried_over_days} giorni</p>
+                  </div>
+                  <div className="bg-white p-3 rounded border">
+                    <span className="text-slate-600 text-sm">Rimanenti</span>
+                    <p className={`font-bold text-lg ${yearData.remaining_days >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      {yearData.remaining_days} giorni
+                    </p>
+                  </div>
+                  {yearData.year < vacationSummary.current_year && (
+                    <div className="bg-white p-3 rounded border">
+                      <span className="text-slate-600 text-sm">Riportabili</span>
+                      <p className="font-bold text-emerald-600 text-lg">{yearData.can_carry_over} giorni</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Statistics */}
       <div className="bg-white/80 backdrop-blur-md rounded-xl p-6 shadow-sm border border-slate-200/50">
         <h2 className="text-xl font-semibold text-slate-800 mb-6 flex items-center">
           <BarChart3 className="h-5 w-5 mr-2 text-blue-600" />
-          Statistiche Dipendente - Anno {selectedYear}
+          Statistiche Dettagliate - Anno {selectedYear}
         </h2>
 
         {loading ? (
@@ -1764,30 +1939,6 @@ const EmployeeDetails = ({ employee, onBack }) => {
                     </span>
                   </div>
                 </div>
-              </div>
-            </div>
-
-            {/* Performance Indicator */}
-            <div className="bg-gradient-to-r from-teal-500 to-cyan-600 p-6 rounded-xl text-white">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-lg font-semibold mb-2">Performance Anno {stats.year}</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div>
-                      <p className="text-teal-200 text-sm">Media Ferie Annuali</p>
-                      <p className="text-2xl font-bold">{stats.stats.ferie_days}/20 giorni</p>
-                    </div>
-                    <div>
-                      <p className="text-teal-200 text-sm">Utilizzo Permessi</p>
-                      <p className="text-2xl font-bold">{stats.stats.permessi_count} richieste</p>
-                    </div>
-                    <div>
-                      <p className="text-teal-200 text-sm">Giorni Malattia</p>
-                      <p className="text-2xl font-bold">{stats.stats.malattie_days} giorni</p>
-                    </div>
-                  </div>
-                </div>
-                <TrendingUp className="h-16 w-16 text-teal-200" />
               </div>
             </div>
           </div>
