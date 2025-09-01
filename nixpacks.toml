@@ -1,11 +1,8 @@
 [phases.setup]
-nixPkgs = ['python39', 'pip']
+nixPkgs = ['python39', 'python39Packages.pip']
 
 [phases.install]
 cmds = ['cd backend && pip install -r requirements.txt']
-
-[phases.build]
-cmds = ['echo "No build phase needed"']
 
 [start]
 cmd = 'cd backend && python -m uvicorn server:app --host 0.0.0.0 --port $PORT'
