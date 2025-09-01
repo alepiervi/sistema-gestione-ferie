@@ -1,8 +1,0 @@
-frontend/
-node_modules/
-yarn.lock
-package.json
-package-lock.json
-*.log
-.env
-tests/
