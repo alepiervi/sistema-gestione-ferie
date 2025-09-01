@@ -17,9 +17,10 @@ COPY backend/ ./
 
 # Set environment variable for port
 ENV PORT=8000
+ENV PYTHONPATH=/app
 
 # Expose port
 EXPOSE $PORT
 
-# Start command
-CMD ["python", "-m", "uvicorn", "server:app", "--host", "0.0.0.0", "--port", "8000"]
+# Start command (senza cd, siamo già in /app)
+CMD python -m uvicorn server:app --host 0.0.0.0 --port $PORT
