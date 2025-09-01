@@ -1,12 +1,11 @@
 [phases.setup]
-nixPkgs = ['python39', 'python39Packages.pip', 'python39Packages.virtualenv']
+nixPkgs = ['python39']
 
 [phases.install]
 cmds = [
-  'python -m venv /opt/venv',
-  '/opt/venv/bin/pip install --upgrade pip',
-  'cd backend && /opt/venv/bin/pip install -r requirements.txt'
+  'cd backend && pip install --user fastapi uvicorn[standard] pymongo python-jose[cryptography] passlib[bcrypt] python-multipart python-dotenv',
+  'cd backend && pip install --user -r requirements.txt'
 ]
 
 [start]
-cmd = 'cd backend && /opt/venv/bin/python -m uvicorn server:app --host 0.0.0.0 --port $PORT'
+cmd = 'cd backend && /root/.local/bin/uvicorn server:app --host 0.0.0.0 --port $PORT'
