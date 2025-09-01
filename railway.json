@@ -3,8 +3,6 @@
     "builder": "nixpacks"
   },
   "deploy": {
-    "numReplicas": 1,
-    "sleepApplication": false,
-    "restartPolicyType": "never"
+    "startCommand": "cd backend && python -m uvicorn server:app --host 0.0.0.0 --port $PORT"
   }
 }
